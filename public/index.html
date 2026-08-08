@@ -266,7 +266,8 @@
   a:hover, a:focus-visible { text-decoration: underline; outline: none; }
 
   /* === ascii-cat: wandering terminal cat — two modes: LEFT-gutter on desktop (avoids text),
-     free-roam across the whole screen on mobile. See matching <pre id="ascii-cat"> and script block. === */
+     whole-screen roam on mobile (walks over text OK, but never SITS on it).
+     See matching <pre id="ascii-cat"> and script block. === */
   #ascii-cat {
     position: fixed;
     left: 0;
@@ -313,7 +314,7 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
-<!-- === ascii-cat: wandering terminal cat — left gutter on desktop, free-roam on mobile. To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<!-- === ascii-cat: wandering terminal cat — left gutter on desktop, roams the whole screen on mobile (never sits on text). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
 <pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
@@ -372,37 +373,37 @@
 
         <article class="project">
           <h3><a href="https://github.com/thomwebb/gac">gac</a></h3>
-          <p>LLM-powered git commit message CLI supporting 35+ providers. 300+ stars, 125k+ PyPI downloads, 95% test coverage, docs in 16 languages.</p>
+          <p>Writes your git commit messages using any of 35+ LLM providers. 300+ stars, 125k+ downloads, community-translated docs in 16 languages.</p>
           <div class="tags"><span>python</span><span>cli</span><span>llm</span></div>
         </article>
 
         <article class="project">
           <h3><a href="https://code-puppy.dev/">code_puppy</a></h3>
-          <p>Open-source AI coding agent CLI (500k+ downloads) — an agentic alternative to Cursor/Windsurf. Top external contributor turned core team member.</p>
+          <p>Open-source AI coding agent (500k+ downloads), a terminal-native alternative to Cursor. My day job: I work on its harness — browser automation, safety guardrails, internationalization.</p>
           <div class="tags"><span>python</span><span>ai-agents</span><span>oss</span></div>
         </article>
 
         <article class="project">
           <h3><a href="https://jobhunt.coach">jobhunt.coach</a></h3>
-          <p>AI career coach: oral-history interview → tailored LaTeX→PDF resumes → interview prep. Multi-user, invite-gated, live — built end-to-end solo.</p>
+          <p>AI career coach that interviews you about your work history, then writes tailored resumes (LaTeX → PDF) and prepares you for interviews. Live and multi-user, built solo end to end.</p>
           <div class="tags"><span>fastapi</span><span>react</span><span>llm</span></div>
         </article>
 
         <article class="project">
           <h3><a href="https://kittylog.app">kittylog.app</a></h3>
-          <p>AI changelog automation SaaS — a GitHub App that turns commits and PRs into release notes. Live.</p>
+          <p>GitHub App that turns your commits and PRs into readable release notes. Live SaaS, built and operated solo.</p>
           <div class="tags"><span>python</span><span>docker</span><span>github-app</span></div>
         </article>
 
         <article class="project">
           <h3><a href="https://trendinginpython.com">trendinginpython.com</a></h3>
-          <p>Full-stack dashboard aggregating trending GitHub repos, PyPI packages, and Dev.to articles — ranked and refreshed hourly.</p>
+          <p>What's hot in Python right now: trending GitHub repos, PyPI packages, and Dev.to articles on one leaderboard, refreshed hourly.</p>
           <div class="tags"><span>python</span><span>fastapi</span><span>react</span></div>
         </article>
 
         <article class="project">
           <h3><a href="https://github.com/thomwebb/clippy-code">clippy-code</a></h3>
-          <p>Model-agnostic agentic coding CLI with MCP support, subagents, and slash commands.</p>
+          <p>Model-agnostic agentic coding CLI with MCP support, subagents, and slash commands — my sandbox for agent-harness ideas.</p>
           <div class="tags"><span>python</span><span>pydanticai</span><span>mcp</span></div>
         </article>
 
@@ -466,7 +467,8 @@
 <script>
 /* === ascii-cat: wandering terminal cat — two modes:
      'gutter' (desktop >=1100px): roams the LEFT gutter, avoids text collisions.
-     'roam'   (mobile  <1100px): free random-walk across the whole viewport; may pass over text.
+     'roam'   (mobile  <1100px): random-walk across the whole viewport — walks over text
+     but never STOPS/sits on it (same collision check, no gutter x-confinement).
    Remove together with the <pre id="ascii-cat"> and the "#ascii-cat" CSS block above. === */
 (function () {
   var cat = document.getElementById('ascii-cat');
@@ -544,10 +546,17 @@
   }
 
   function pickTarget() {
-    /* roam mode: anywhere in the viewport, no collision checks */
-    if (mode === 'roam') return { x: randomX(), y: randomY() };
-    /* gutter mode: left gutter only, text-rect check as safety net for full-width elements */
     if (rectsDirty) collectTextRects();
+    /* roam mode: candidates span the whole viewport, but the cat must not STOP on
+       text (strolling across text on the way is fine — only endpoints are checked) */
+    if (mode === 'roam') {
+      for (var i = 0; i < 30; i++) {
+        var cx = randomX(), cy = randomY();
+        if (isValidSpot(cx, cy)) return { x: cx, y: cy };
+      }
+      return null; /* sit where it is */
+    }
+    /* gutter mode: left gutter only, same text-rect check as safety net for full-width elements */
     var g = gutter();
     if (!g || g.max < g.min) return null;
     for (var i = 0; i < 30; i++) {
@@ -641,13 +650,7 @@
     rectsDirty = true;
     if (scrollCheck) clearTimeout(scrollCheck);
     scrollCheck = setTimeout(function () {
-      if (!active || state === 'walk') return;
-      if (mode === 'roam') { /* just keep it on-screen after a resize */
-        x = Math.min(x, Math.max(8, window.innerWidth - catW() - 8));
-        y = Math.min(y, Math.max(8, window.innerHeight - catH() - 8));
-        place();
-        return;
-      }
+      if (!active || state === 'walk') return; /* only relocate while SITTING: no mid-stroll jitter */
       collectTextRects();
       if (!isValidSpot(x, y)) {
         var t = pickTarget();
