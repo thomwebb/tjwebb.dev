@@ -244,11 +244,12 @@
   footer a { color: var(--green); text-decoration: none; }
   footer a:hover, footer a:focus-visible { text-decoration: underline; outline: none; }
 
-  /* === ascii-cat: end-of-page easter egg. See matching <pre id="ascii-cat"> and script block. === */
+  /* === ascii-cat: wandering terminal cat (desktop only, avoids text).
+     See matching <pre id="ascii-cat"> and script block. === */
   #ascii-cat {
     position: fixed;
-    right: 24px;
-    bottom: 24px;
+    left: 0;
+    top: 0;
     z-index: 40;
     pointer-events: none;
     user-select: none;
@@ -257,20 +258,25 @@
     font-size: 11px;
     line-height: 1.15;
     color: var(--green);
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-  #ascii-cat.visible {
     opacity: 0.9;
-    transform: translateY(0);
+    will-change: transform;
+  }
+  /* desktop only — no cat on narrow viewports */
+  @media (max-width: 1099px) {
+    #ascii-cat { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .cursor { animation: none; }
     html { scroll-behavior: auto; }
-    /* ascii-cat: appears/disappears instantly, no entrance animation */
-    #ascii-cat { transition: none; }
+    /* ascii-cat: parked still in the bottom-right gutter (still desktop-gated above) */
+    #ascii-cat {
+      left: auto !important;
+      top: auto !important;
+      right: 24px;
+      bottom: 24px;
+      transform: none !important;
+    }
   }
   @media (prefers-reduced-motion: no-preference) {
     body, .job, .tags span, .theme-toggle {
@@ -286,7 +292,7 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
-<!-- === ascii-cat: end-of-page easter egg. To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<!-- === ascii-cat: wandering terminal cat (desktop only). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
 <pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
@@ -448,43 +454,179 @@
 })();
 </script>
 <script>
-/* === ascii-cat: end-of-page easter egg. Remove together with the <pre id="ascii-cat">
-   and the "#ascii-cat" CSS block above. === */
+/* === ascii-cat: wandering terminal cat (desktop only, avoids text).
+   Remove together with the <pre id="ascii-cat"> and the "#ascii-cat" CSS block above. === */
 (function () {
   var cat = document.getElementById('ascii-cat');
   if (!cat) return;
 
   var SIT   = ' /\\_/\\\n( o.o )\n > ^ < ~';
   var BLINK = ' /\\_/\\\n( -.- )\n > ^ < ~';
+  var WALK  = [' /\\_/\\\n( o.o )\n > ^ < ~',
+               ' /\\_/\\\n( o.o )\n> ^ < ~'];
   cat.textContent = SIT;
 
-  /* show only when the visitor reaches (within ~100px of) the bottom of the page */
-  function onScroll() {
-    var nearBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100;
-    cat.classList.toggle('visible', nearBottom);
-  }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll);
-  onScroll();
+  /* prefers-reduced-motion: CSS parks the cat in the bottom-right gutter; don't animate */
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  /* idle blink while visible; paused when the tab is hidden */
-  var timer = null;
+  var desktop = window.matchMedia('(min-width: 1100px)');
+  var x = 48, y = 48, dir = 1;  /* dir: 1 = facing left (tail right), -1 = flipped right */
+  var state = 'sit';
+  var active = false;
+  var raf = null, stateTimer = null, blinkTimer = null, walkInt = null, scrollCheck = null;
+  var textRects = [];
+  var rectsDirty = true;
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function place() {
+    cat.style.transform = 'translate(' + x + 'px, ' + y + 'px) scaleX(' + dir + ')';
+  }
+  function catW() { return cat.offsetWidth || 90; }
+  function catH() { return cat.offsetHeight || 40; }
+
+  /* padded bounding rects of visible text, plus the fixed theme-toggle button */
+  function collectTextRects() {
+    var pad = 12, rects = [];
+    var els = document.querySelectorAll(
+      'header h1, header p, header nav, main h2, main article, main p, main .tags span, footer'
+    );
+    for (var i = 0; i < els.length; i++) {
+      var r = els[i].getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;
+      rects.push({ left: r.left - pad, top: r.top - pad, right: r.right + pad, bottom: r.bottom + pad });
+    }
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      var t = toggle.getBoundingClientRect();
+      rects.push({ left: t.left - pad, top: t.top - pad, right: t.right + pad, bottom: t.bottom + pad });
+    }
+    textRects = rects;
+    rectsDirty = false;
+  }
+
+  function intersects(a, b) {
+    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  }
+  function isValidSpot(cx, cy) {
+    var r = { left: cx, top: cy, right: cx + catW(), bottom: cy + catH() };
+    if (r.left < 8 || r.top < 8 || r.right > window.innerWidth - 8 || r.bottom > window.innerHeight - 8) return false;
+    for (var i = 0; i < textRects.length; i++) if (intersects(r, textRects[i])) return false;
+    return true;
+  }
+  function randomY() { return rand(8, Math.max(9, window.innerHeight - catH() - 8)); }
+  function pickTarget() {
+    if (rectsDirty) collectTextRects();
+    var i, cx, cy;
+    for (i = 0; i < 30; i++) {
+      cx = rand(8, Math.max(9, window.innerWidth - catW() - 8));
+      cy = randomY();
+      if (isValidSpot(cx, cy)) return { x: cx, y: cy };
+    }
+    /* fallback: the gutters beside the centered content column */
+    var wrap = document.querySelector('.wrap');
+    if (wrap) {
+      var wr = wrap.getBoundingClientRect();
+      var ranges = [];
+      if (wr.left > catW() + 24) ranges.push([8, wr.left - catW() - 8]);
+      if (window.innerWidth - wr.right > catW() + 24) ranges.push([wr.right + 8, window.innerWidth - catW() - 8]);
+      for (i = 0; i < 30 && ranges.length; i++) {
+        var g = ranges[Math.floor(rand(0, ranges.length))];
+        cx = rand(g[0], Math.max(g[0] + 1, g[1]));
+        cy = randomY();
+        if (isValidSpot(cx, cy)) return { x: cx, y: cy };
+      }
+    }
+    return null; /* sit where it is */
+  }
+
   function blinkLoop() {
-    timer = setTimeout(function () {
-      if (cat.classList.contains('visible')) {
+    blinkTimer = setTimeout(function () {
+      if (state === 'sit') {
         cat.textContent = BLINK;
-        setTimeout(function () {
-          if (cat.textContent === BLINK) cat.textContent = SIT;
-        }, 160);
+        setTimeout(function () { if (state === 'sit') cat.textContent = SIT; }, 160);
       }
       blinkLoop();
-    }, 2500 + Math.random() * 3500);
+    }, rand(2500, 6000));
   }
+
+  function sitThenWalk() {
+    state = 'sit';
+    cat.textContent = SIT;
+    stateTimer = setTimeout(walkToRandom, rand(3000, 8000));
+  }
+
+  function walkToRandom() {
+    var t = pickTarget();
+    if (!t) { sitThenWalk(); return; }
+    var dx = t.x - x, dy = t.y - y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 40) { sitThenWalk(); return; }
+    dir = dx < 0 ? 1 : -1;
+    state = 'walk';
+    var sx = x, sy = y, start = null, frame = 0;
+    var dur = Math.min(12000, Math.max(2500, dist / 0.045)); /* ~45px/s stroll */
+    walkInt = setInterval(function () {
+      frame = (frame + 1) % 2;
+      cat.textContent = WALK[frame];
+    }, 240);
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / dur);
+      var e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; /* easeInOutQuad */
+      x = sx + dx * e;
+      y = sy + dy * e;
+      place();
+      if (p < 1) { raf = requestAnimationFrame(step); }
+      else { clearInterval(walkInt); walkInt = null; sitThenWalk(); }
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  function enable() {
+    if (active) return;
+    active = true;
+    rectsDirty = true;
+    var t = pickTarget(); /* start from a text-free spot */
+    if (t) { x = t.x; y = t.y; }
+    place();
+    blinkLoop();
+    sitThenWalk();
+  }
+  function disable() {
+    active = false;
+    if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+    if (walkInt !== null) { clearInterval(walkInt); walkInt = null; }
+    clearTimeout(stateTimer);
+    clearTimeout(blinkTimer);
+  }
+  function syncGate() { if (desktop.matches) enable(); else disable(); }
+  if (desktop.addEventListener) desktop.addEventListener('change', syncGate);
+  else desktop.addListener(syncGate);
+
+  /* text moves under the fixed cat when scrolling/resizing: re-check after things settle */
+  function onLayoutShift() {
+    rectsDirty = true;
+    if (scrollCheck) clearTimeout(scrollCheck);
+    scrollCheck = setTimeout(function () {
+      if (!active || state === 'walk') return;
+      collectTextRects();
+      if (!isValidSpot(x, y)) {
+        var t = pickTarget();
+        if (t) { x = t.x; y = t.y; place(); }
+      }
+    }, 250);
+  }
+  window.addEventListener('scroll', onLayoutShift, { passive: true });
+  window.addEventListener('resize', onLayoutShift);
+  window.addEventListener('load', function () { rectsDirty = true; });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { rectsDirty = true; });
+
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) clearTimeout(timer);
-    else blinkLoop();
+    if (document.hidden) disable();
+    else syncGate();
   });
-  blinkLoop();
+
+  syncGate();
 })();
 </script>
 </body>
