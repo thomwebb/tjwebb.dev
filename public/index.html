@@ -239,9 +239,34 @@
   footer a { color: var(--green); text-decoration: none; }
   footer a:hover, footer a:focus-visible { text-decoration: underline; outline: none; }
 
+  /* === ascii-cat: see matching <pre id="ascii-cat"> and script block === */
+  #ascii-cat {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 40;
+    pointer-events: none;
+    user-select: none;
+    margin: 0;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.15;
+    color: var(--green);
+    opacity: 0.9;
+    will-change: transform;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .cursor { animation: none; }
     html { scroll-behavior: auto; }
+    /* ascii-cat: stays parked in the corner, no wandering */
+    #ascii-cat {
+      left: auto !important;
+      top: auto !important;
+      right: 1rem;
+      bottom: 1rem;
+      transform: none !important;
+    }
   }
   @media (prefers-reduced-motion: no-preference) {
     body, .job, .tags span, .theme-toggle {
@@ -257,6 +282,8 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
+<!-- === ascii-cat: playful decoration. To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
   <header class="hero">
@@ -414,6 +441,97 @@
     sync();
   });
   sync();
+})();
+</script>
+<script>
+/* === ascii-cat: wandering terminal cat. Remove together with the <pre id="ascii-cat">
+   and the "#ascii-cat" CSS block above. === */
+(function () {
+  var cat = document.getElementById('ascii-cat');
+  if (!cat) return;
+
+  var SIT   = ' /\\_/\\\n( o.o )\n > ^ < ~';
+  var BLINK = ' /\\_/\\\n( -.- )\n > ^ < ~';
+  var WALK  = [' /\\_/\\\n( o.o )\n > ^ < ~',
+               ' /\\_/\\\n( o.o )\n> ^ < ~'];
+  cat.textContent = SIT;
+
+  /* prefers-reduced-motion: CSS parks the cat in a corner; don't animate at all */
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var x = 32, y = Math.max(0, window.innerHeight - 140);
+  var dir = 1;              /* 1 = facing left (tail on the right), -1 = flipped right */
+  var state = 'sit';
+  var raf = null, timer = null, walkInt = null;
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function place() {
+    cat.style.transform = 'translate(' + x + 'px, ' + y + 'px) scaleX(' + dir + ')';
+  }
+  function maxX() { return Math.max(0, window.innerWidth - cat.offsetWidth - 16); }
+  function maxY() { return Math.max(0, window.innerHeight - cat.offsetHeight - 16); }
+
+  function blinkLoop() {
+    timer = setTimeout(function () {
+      if (state === 'sit') {
+        cat.textContent = BLINK;
+        setTimeout(function () { if (state === 'sit') cat.textContent = SIT; }, 160);
+      }
+      blinkLoop();
+    }, rand(2500, 6000));
+  }
+
+  function sitThenWalk() {
+    state = 'sit';
+    cat.textContent = SIT;
+    timer = setTimeout(walkToRandom, rand(3000, 8000));
+  }
+
+  function walkToRandom() {
+    var tx = rand(0, maxX()), ty = rand(0, maxY());
+    var dx = tx - x, dy = ty - y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 40) { sitThenWalk(); return; }
+    dir = dx < 0 ? 1 : -1;
+    state = 'walk';
+    var sx = x, sy = y, start = null, frame = 0;
+    var dur = Math.min(12000, Math.max(2500, dist / 0.045)); /* ~45px/s stroll */
+    walkInt = setInterval(function () {
+      frame = (frame + 1) % 2;
+      cat.textContent = WALK[frame];
+    }, 240);
+    function step(ts) {
+      if (start === null) start = ts;
+      var t = Math.min(1, (ts - start) / dur);
+      var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      x = sx + dx * e;
+      y = sy + dy * e;
+      place();
+      if (t < 1) { raf = requestAnimationFrame(step); }
+      else { clearInterval(walkInt); walkInt = null; sitThenWalk(); }
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+      if (walkInt !== null) { clearInterval(walkInt); walkInt = null; }
+      clearTimeout(timer);
+    } else {
+      sitThenWalk();
+    }
+  });
+
+  window.addEventListener('resize', function () {
+    x = Math.min(x, maxX());
+    y = Math.min(y, maxY());
+    place();
+  });
+
+  place();
+  blinkLoop();
+  sitThenWalk();
 })();
 </script>
 </body>
