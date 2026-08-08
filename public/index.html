@@ -16,14 +16,13 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230d1117'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='14' fill='%233fb950' text-anchor='middle'%3E%3E_%3C/text%3E%3C/svg%3E">
 <script>
 (function () {
-  var themes = ['github-dark', 'gruvbox', 'dracula', 'solarized-dark', 'monokai', 'solarized-light'];
+  var themes = ['github-dark', 'gruvbox', 'dracula', 'solarized-dark', 'monokai'];
   var colors = {
     'github-dark': '#0d1117',
     'gruvbox': '#282828',
     'dracula': '#282a36',
     'solarized-dark': '#002b36',
-    'monokai': '#272822',
-    'solarized-light': '#fdf6e3'
+    'monokai': '#272822'
   };
   var theme = 'github-dark';
   try {
@@ -95,18 +94,6 @@
     --cyan: #66d9ef;
     --yellow: #e6db74;
     --heading: #ffffff;
-  }
-  [data-theme="solarized-light"] {
-    --bg: #fdf6e3;
-    --bg-soft: #eee8d5;
-    --border: #ddd3bb;
-    --fg: #586e75;
-    --fg-dim: #657b83;
-    --green: #859900;
-    --green-bright: #6e8100;
-    --cyan: #2aa198;
-    --yellow: #b58900;
-    --heading: #073642;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -400,14 +387,13 @@
 </div>
 <script>
 (function () {
-  var themes = ['github-dark', 'gruvbox', 'dracula', 'solarized-dark', 'monokai', 'solarized-light'];
+  var themes = ['github-dark', 'gruvbox', 'dracula', 'solarized-dark', 'monokai'];
   var colors = {
     'github-dark': '#0d1117',
     'gruvbox': '#282828',
     'dracula': '#282a36',
     'solarized-dark': '#002b36',
-    'monokai': '#272822',
-    'solarized-light': '#fdf6e3'
+    'monokai': '#272822'
   };
   var btn = document.getElementById('theme-toggle');
   var meta = document.getElementById('meta-theme-color');
