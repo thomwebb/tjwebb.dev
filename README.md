@@ -2,7 +2,7 @@
 
 Source for [tjwebb.dev](https://tjwebb.dev) — TJ Webb's portfolio site.
 
-A single self-contained `index.html` (inline CSS/JS, no build step) with a terminal aesthetic, five switchable color schemes (github-dark, gruvbox, dracula, solarized-dark, monokai), and a wandering ASCII cat (left gutter on desktop, free-roam on mobile).
+A single self-contained `index.html` (inline CSS/JS, no build step) with a terminal aesthetic, six switchable color schemes (github-dark, gruvbox, dracula, solarized-dark, monokai, phosphor), and a wandering ASCII cat (left gutter on desktop, free-roam on mobile).
 
 ## Structure
 
