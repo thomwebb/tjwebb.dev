@@ -244,7 +244,7 @@
   footer a { color: var(--green); text-decoration: none; }
   footer a:hover, footer a:focus-visible { text-decoration: underline; outline: none; }
 
-  /* === ascii-cat: wandering terminal cat (desktop only, avoids text).
+  /* === ascii-cat: wandering terminal cat — roams the LEFT gutter (desktop only, avoids text).
      See matching <pre id="ascii-cat"> and script block. === */
   #ascii-cat {
     position: fixed;
@@ -269,11 +269,11 @@
   @media (prefers-reduced-motion: reduce) {
     .cursor { animation: none; }
     html { scroll-behavior: auto; }
-    /* ascii-cat: parked still in the bottom-right gutter (still desktop-gated above) */
+    /* ascii-cat: parked still in the bottom-left gutter (still desktop-gated above) */
     #ascii-cat {
-      left: auto !important;
+      left: 24px !important;
       top: auto !important;
-      right: 24px;
+      right: auto;
       bottom: 24px;
       transform: none !important;
     }
@@ -292,7 +292,7 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
-<!-- === ascii-cat: wandering terminal cat (desktop only). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<!-- === ascii-cat: wandering terminal cat, roams the left gutter (desktop only). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
 <pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
@@ -442,7 +442,7 @@
 })();
 </script>
 <script>
-/* === ascii-cat: wandering terminal cat (desktop only, avoids text).
+/* === ascii-cat: wandering terminal cat — roams the LEFT gutter (desktop only, avoids text).
    Remove together with the <pre id="ascii-cat"> and the "#ascii-cat" CSS block above. === */
 (function () {
   var cat = document.getElementById('ascii-cat');
@@ -454,8 +454,30 @@
                ' /\\_/\\\n( o.o )\n> ^ < ~'];
   cat.textContent = SIT;
 
-  /* prefers-reduced-motion: CSS parks the cat in the bottom-right gutter; don't animate */
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  function catW() { return cat.offsetWidth || 90; }
+  function catH() { return cat.offsetHeight || 40; }
+
+  /* the left gutter: viewport left edge .. content column's left edge, minus margins.
+     Measured live from the DOM so it tracks resize/scroll like the rect cache. */
+  var GUTTER_MIN = 12, GUTTER_PAD = 16;
+  function gutter() {
+    var wrap = document.querySelector('.wrap');
+    if (!wrap) return null;
+    return { min: GUTTER_MIN, max: wrap.getBoundingClientRect().left - catW() - GUTTER_PAD };
+  }
+  function gutterOk() {
+    var g = gutter();
+    return g !== null && g.max >= g.min;
+  }
+
+  /* prefers-reduced-motion: CSS parks the cat in the bottom-left gutter; hide it if
+     the gutter is too narrow, and never animate */
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    function rmGate() { cat.style.display = gutterOk() ? '' : 'none'; }
+    window.addEventListener('resize', rmGate);
+    rmGate();
+    return;
+  }
 
   var desktop = window.matchMedia('(min-width: 1100px)');
   var x = 48, y = 48, dir = 1;  /* dir: 1 = facing left (tail right), -1 = flipped right */
@@ -469,8 +491,6 @@
   function place() {
     cat.style.transform = 'translate(' + x + 'px, ' + y + 'px) scaleX(' + dir + ')';
   }
-  function catW() { return cat.offsetWidth || 90; }
-  function catH() { return cat.offsetHeight || 40; }
 
   /* padded bounding rects of visible text, plus the fixed theme-toggle button */
   function collectTextRects() {
@@ -502,27 +522,17 @@
     return true;
   }
   function randomY() { return rand(8, Math.max(9, window.innerHeight - catH() - 8)); }
+
+  /* all spots come from the left gutter; the text-rect check is a safety net for
+     full-width elements (footer, wide sections) that might span the gutter */
   function pickTarget() {
     if (rectsDirty) collectTextRects();
-    var i, cx, cy;
-    for (i = 0; i < 30; i++) {
-      cx = rand(8, Math.max(9, window.innerWidth - catW() - 8));
-      cy = randomY();
+    var g = gutter();
+    if (!g || g.max < g.min) return null;
+    for (var i = 0; i < 30; i++) {
+      var cx = rand(g.min, g.max);
+      var cy = randomY();
       if (isValidSpot(cx, cy)) return { x: cx, y: cy };
-    }
-    /* fallback: the gutters beside the centered content column */
-    var wrap = document.querySelector('.wrap');
-    if (wrap) {
-      var wr = wrap.getBoundingClientRect();
-      var ranges = [];
-      if (wr.left > catW() + 24) ranges.push([8, wr.left - catW() - 8]);
-      if (window.innerWidth - wr.right > catW() + 24) ranges.push([wr.right + 8, window.innerWidth - catW() - 8]);
-      for (i = 0; i < 30 && ranges.length; i++) {
-        var g = ranges[Math.floor(rand(0, ranges.length))];
-        cx = rand(g[0], Math.max(g[0] + 1, g[1]));
-        cy = randomY();
-        if (isValidSpot(cx, cy)) return { x: cx, y: cy };
-      }
     }
     return null; /* sit where it is */
   }
@@ -573,8 +583,9 @@
   function enable() {
     if (active) return;
     active = true;
+    cat.style.display = '';
     rectsDirty = true;
-    var t = pickTarget(); /* start from a text-free spot */
+    var t = pickTarget(); /* start from a text-free gutter spot */
     if (t) { x = t.x; y = t.y; }
     place();
     blinkLoop();
@@ -582,17 +593,21 @@
   }
   function disable() {
     active = false;
+    cat.style.display = 'none';
     if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
     if (walkInt !== null) { clearInterval(walkInt); walkInt = null; }
     clearTimeout(stateTimer);
     clearTimeout(blinkTimer);
   }
-  function syncGate() { if (desktop.matches) enable(); else disable(); }
+  /* gated on viewport width AND a wide-enough gutter */
+  function syncGate() { if (desktop.matches && gutterOk()) enable(); else disable(); }
   if (desktop.addEventListener) desktop.addEventListener('change', syncGate);
   else desktop.addListener(syncGate);
 
-  /* text moves under the fixed cat when scrolling/resizing: re-check after things settle */
+  /* text moves under the fixed cat when scrolling/resizing: re-gate, then re-check
+     the sitting spot after things settle */
   function onLayoutShift() {
+    syncGate();
     rectsDirty = true;
     if (scrollCheck) clearTimeout(scrollCheck);
     scrollCheck = setTimeout(function () {
