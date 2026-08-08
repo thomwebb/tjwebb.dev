@@ -1,0 +1,11 @@
+{
+  "name": "tjwebb-site",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [
+    { "pattern": "tjwebb.dev", "custom_domain": true },
+    { "pattern": "www.tjwebb.dev", "custom_domain": true }
+  ]
+}
