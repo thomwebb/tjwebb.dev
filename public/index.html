@@ -344,7 +344,7 @@
           <h3>Principal Software Engineer <span class="org">@ Walmart Global Tech</span></h3>
           <time>2026 — present</time>
         </div>
-        <p>Code Puppy team. Joined the core team after six months as an outside contributor — #1 by merged PRs (37). Recent work includes internationalization and rebuilding browser automation from pixel-clicking to semantic locators.</p>
+        <p>Code Puppy team. Joined the core team after six months as an outside contributor — #1 by merged PRs. Recent work includes internationalization and rebuilding browser automation from pixel-clicking to semantic locators.</p>
       </article>
 
       <article class="job">
@@ -583,12 +583,11 @@
     stateTimer = setTimeout(walkToRandom, rand(3000, 8000));
   }
 
-  function walkToRandom() {
-    var t = pickTarget();
-    if (!t) { sitThenWalk(); return; }
+  /* one stroll to a given target; skips micro-moves below minDist */
+  function walkTo(t, minDist) {
     var dx = t.x - x, dy = t.y - y;
     var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 40) { sitThenWalk(); return; }
+    if (dist < minDist) { sitThenWalk(); return; }
     dir = dx < 0 ? 1 : -1;
     state = 'walk';
     var sx = x, sy = y, start = null, frame = 0;
@@ -608,6 +607,12 @@
       else { clearInterval(walkInt); walkInt = null; sitThenWalk(); }
     }
     raf = requestAnimationFrame(step);
+  }
+
+  function walkToRandom() {
+    var t = pickTarget();
+    if (!t) { sitThenWalk(); return; }
+    walkTo(t, 40);
   }
 
   function enable(newMode) {
@@ -644,17 +649,29 @@
   if (desktop.addEventListener) desktop.addEventListener('change', syncGate);
   else desktop.addListener(syncGate);
 
-  /* after scroll/resize settles: re-gate, then fix the sitting spot for the current mode */
+  /* after scroll/resize settles: re-gate, then — if text slid under the SITTING cat —
+     WALK it out of the way with the normal stroll machinery (never teleport) */
   function onLayoutShift() {
     syncGate();
     rectsDirty = true;
     if (scrollCheck) clearTimeout(scrollCheck);
     scrollCheck = setTimeout(function () {
-      if (!active || state === 'walk') return; /* only relocate while SITTING: no mid-stroll jitter */
+      /* only relocate while SITTING: no mid-stroll jitter, no retrigger while walking to safety */
+      if (!active || state === 'walk') return;
       collectTextRects();
       if (!isValidSpot(x, y)) {
+        /* resize pushed the cat (partly) off-viewport: clamp back on-screen first,
+           then stroll the rest of the way */
+        if (x < 0 || y < 0 || x + catW() > window.innerWidth || y + catH() > window.innerHeight) {
+          x = Math.min(Math.max(x, 8), Math.max(8, window.innerWidth - catW() - 8));
+          y = Math.min(Math.max(y, 8), Math.max(8, window.innerHeight - catH() - 8));
+          place();
+        }
         var t = pickTarget();
-        if (t) { x = t.x; y = t.y; place(); }
+        if (t) {
+          clearTimeout(stateTimer); /* the relocation walk replaces the scheduled stroll */
+          walkTo(t, 4);
+        }
       }
     }, 250);
   }
