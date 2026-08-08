@@ -244,8 +244,8 @@
   footer a { color: var(--green); text-decoration: none; }
   footer a:hover, footer a:focus-visible { text-decoration: underline; outline: none; }
 
-  /* === ascii-cat: wandering terminal cat — roams the LEFT gutter (desktop only, avoids text).
-     See matching <pre id="ascii-cat"> and script block. === */
+  /* === ascii-cat: wandering terminal cat — two modes: LEFT-gutter on desktop (avoids text),
+     free-roam across the whole screen on mobile. See matching <pre id="ascii-cat"> and script block. === */
   #ascii-cat {
     position: fixed;
     left: 0;
@@ -261,15 +261,15 @@
     opacity: 0.9;
     will-change: transform;
   }
-  /* desktop only — no cat on narrow viewports */
+  /* mobile roam mode: slightly smaller cat so it covers less content */
   @media (max-width: 1099px) {
-    #ascii-cat { display: none; }
+    #ascii-cat { font-size: 9px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .cursor { animation: none; }
     html { scroll-behavior: auto; }
-    /* ascii-cat: parked still in the bottom-left gutter (still desktop-gated above) */
+    /* ascii-cat: parked still in the bottom-left corner, at any viewport width */
     #ascii-cat {
       left: 24px !important;
       top: auto !important;
@@ -292,7 +292,7 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
-<!-- === ascii-cat: wandering terminal cat, roams the left gutter (desktop only). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<!-- === ascii-cat: wandering terminal cat — left gutter on desktop, free-roam on mobile. To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
 <pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
@@ -442,7 +442,9 @@
 })();
 </script>
 <script>
-/* === ascii-cat: wandering terminal cat — roams the LEFT gutter (desktop only, avoids text).
+/* === ascii-cat: wandering terminal cat — two modes:
+     'gutter' (desktop >=1100px): roams the LEFT gutter, avoids text collisions.
+     'roam'   (mobile  <1100px): free random-walk across the whole viewport; may pass over text.
    Remove together with the <pre id="ascii-cat"> and the "#ascii-cat" CSS block above. === */
 (function () {
   var cat = document.getElementById('ascii-cat');
@@ -453,6 +455,9 @@
   var WALK  = [' /\\_/\\\n( o.o )\n > ^ < ~',
                ' /\\_/\\\n( o.o )\n> ^ < ~'];
   cat.textContent = SIT;
+
+  /* prefers-reduced-motion: CSS parks the cat in the bottom-left corner at any width */
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   function catW() { return cat.offsetWidth || 90; }
   function catH() { return cat.offsetHeight || 40; }
@@ -470,16 +475,8 @@
     return g !== null && g.max >= g.min;
   }
 
-  /* prefers-reduced-motion: CSS parks the cat in the bottom-left gutter; hide it if
-     the gutter is too narrow, and never animate */
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    function rmGate() { cat.style.display = gutterOk() ? '' : 'none'; }
-    window.addEventListener('resize', rmGate);
-    rmGate();
-    return;
-  }
-
   var desktop = window.matchMedia('(min-width: 1100px)');
+  var mode = null;            /* 'gutter' | 'roam' */
   var x = 48, y = 48, dir = 1;  /* dir: 1 = facing left (tail right), -1 = flipped right */
   var state = 'sit';
   var active = false;
@@ -491,8 +488,10 @@
   function place() {
     cat.style.transform = 'translate(' + x + 'px, ' + y + 'px) scaleX(' + dir + ')';
   }
+  function randomX() { return rand(8, Math.max(9, window.innerWidth - catW() - 8)); }
+  function randomY() { return rand(8, Math.max(9, window.innerHeight - catH() - 8)); }
 
-  /* padded bounding rects of visible text, plus the fixed theme-toggle button */
+  /* padded bounding rects of visible text, plus the fixed theme-toggle button (gutter mode only) */
   function collectTextRects() {
     var pad = 12, rects = [];
     var els = document.querySelectorAll(
@@ -521,11 +520,11 @@
     for (var i = 0; i < textRects.length; i++) if (intersects(r, textRects[i])) return false;
     return true;
   }
-  function randomY() { return rand(8, Math.max(9, window.innerHeight - catH() - 8)); }
 
-  /* all spots come from the left gutter; the text-rect check is a safety net for
-     full-width elements (footer, wide sections) that might span the gutter */
   function pickTarget() {
+    /* roam mode: anywhere in the viewport, no collision checks */
+    if (mode === 'roam') return { x: randomX(), y: randomY() };
+    /* gutter mode: left gutter only, text-rect check as safety net for full-width elements */
     if (rectsDirty) collectTextRects();
     var g = gutter();
     if (!g || g.max < g.min) return null;
@@ -580,12 +579,12 @@
     raf = requestAnimationFrame(step);
   }
 
-  function enable() {
-    if (active) return;
+  function enable(newMode) {
+    mode = newMode;
     active = true;
     cat.style.display = '';
     rectsDirty = true;
-    var t = pickTarget(); /* start from a text-free gutter spot */
+    var t = pickTarget(); /* start from a valid spot for the mode */
     if (t) { x = t.x; y = t.y; }
     place();
     blinkLoop();
@@ -593,25 +592,40 @@
   }
   function disable() {
     active = false;
-    cat.style.display = 'none';
     if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
     if (walkInt !== null) { clearInterval(walkInt); walkInt = null; }
     clearTimeout(stateTimer);
     clearTimeout(blinkTimer);
   }
-  /* gated on viewport width AND a wide-enough gutter */
-  function syncGate() { if (desktop.matches && gutterOk()) enable(); else disable(); }
+  /* switch modes on viewport changes; desktop gutter mode still hides if the gutter is too narrow */
+  function syncGate() {
+    var m = desktop.matches ? 'gutter' : 'roam';
+    if (m === 'gutter' && !gutterOk()) {
+      disable();
+      mode = m;
+      cat.style.display = 'none';
+      return;
+    }
+    if (active && m === mode) return;
+    disable();
+    enable(m);
+  }
   if (desktop.addEventListener) desktop.addEventListener('change', syncGate);
   else desktop.addListener(syncGate);
 
-  /* text moves under the fixed cat when scrolling/resizing: re-gate, then re-check
-     the sitting spot after things settle */
+  /* after scroll/resize settles: re-gate, then fix the sitting spot for the current mode */
   function onLayoutShift() {
     syncGate();
     rectsDirty = true;
     if (scrollCheck) clearTimeout(scrollCheck);
     scrollCheck = setTimeout(function () {
       if (!active || state === 'walk') return;
+      if (mode === 'roam') { /* just keep it on-screen after a resize */
+        x = Math.min(x, Math.max(8, window.innerWidth - catW() - 8));
+        y = Math.min(y, Math.max(8, window.innerHeight - catH() - 8));
+        place();
+        return;
+      }
       collectTextRects();
       if (!isValidSpot(x, y)) {
         var t = pickTarget();
