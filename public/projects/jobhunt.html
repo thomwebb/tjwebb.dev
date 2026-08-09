@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>jobhunt.coach — TJ Webb</title>
-<meta name="description" content="How I built jobhunt.coach: a live, multi-user AI career coach with an honesty methodology baked into every model call. Writeup by TJ Webb.">
+<meta name="description" content="How I built jobhunt.coach: an AI coach that runs your whole job search — career narrative, tailored resumes, interview prep. Writeup by TJ Webb.">
 <link rel="canonical" href="https://tjwebb.dev/projects/jobhunt">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://tjwebb.dev/projects/jobhunt">
 <meta property="og:title" content="jobhunt.coach — project writeup">
-<meta property="og:description" content="A live AI career coach that is forbidden from flattering you. Architecture, agentic loop, and the honesty methodology behind it.">
+<meta property="og:description" content="An AI coach that runs your whole job search: career narrative, tailored resumes, interview prep. The process that got me hired, turned into software.">
 <meta property="og:site_name" content="TJ Webb">
 <meta name="theme-color" id="meta-theme-color" content="#0d1117">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230d1117'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='14' fill='%233fb950' text-anchor='middle'%3E%3E_%3C/text%3E%3C/svg%3E">
@@ -242,7 +242,7 @@
     <p class="crumb mono"><a href="/">..</a></p>
     <p class="prompt mono" style="margin-top:1.5rem;"><span class="dollar">$</span> cat ~/projects/jobhunt.md</p>
     <h1>jobhunt.coach</h1>
-    <p class="subtitle">An AI career coach that is forbidden from flattering you.</p>
+    <p class="subtitle">The job-search process that got me hired, turned into software.</p>
     <p class="meta-line">live · invite-gated · multi-user · sole engineer · <a href="https://jobhunt.coach">jobhunt.coach ↗</a></p>
   </header>
 
@@ -250,13 +250,7 @@
     <section aria-labelledby="what">
       <h2 id="what">what it is</h2>
       <p>jobhunt.coach runs a job search end to end from a single chat-driven dashboard. It interviews you about your career the way an oral historian would, one question at a time, and builds a structured career narrative from your answers. Paste a job description and it analyzes your fit, then writes a tailored resume and cover letter, compiled from LaTeX to a real PDF. Before an interview, it produces per-interviewer prep: likely questions, answers in your own voice, grounded in your actual history.</p>
-      <p>It's the productized version of a methodology I first ran manually on my own job search — the same process that landed my current role. I built it alone: 1,200+ of the repo's ~1,250 commits are mine (the rest are Dependabot), through a PR-based workflow with CI enforcement.</p>
-    </section>
-
-    <section aria-labelledby="honesty">
-      <h2 id="honesty">the honest part</h2>
-      <p>The distinguishing idea isn't a feature, it's a constraint. Every LLM call is wrapped in a methodology prompt that <strong>forbids inventing facts</strong>, forbids claiming anything "shipped" or "deployed" without evidence from your history, and <strong>forces the model to surface gaps and outright disqualifiers</strong> in a fit analysis instead of cheerleading.</p>
-      <p>A career tool that flatters you produces resumes that collapse in the first interview. The uncomfortable version — "you don't meet this requirement, here's what you can honestly say instead" — is the one that's actually useful. Making a model reliably honest about its user turned out to be a harder and more interesting problem than making it eloquent.</p>
+      <p>It's the productized version of a methodology I first ran manually on my own job search — the same process that landed my current role.</p>
     </section>
 
     <section aria-labelledby="how">
@@ -267,6 +261,11 @@
         <li><strong>Interview prep.</strong> Per-interviewer dossiers with likely questions and answers in your voice, grounded in the profile rather than invented.</li>
       </ol>
       <p>Turns are durable: a long agentic run survives a page reload, because the client polls a turn ID instead of holding a connection open. One turn can chain up to 20 tool actions, so a compound request like "find jobs, analyze the top three, draft resumes for the best two" completes without babysitting.</p>
+    </section>
+
+    <section aria-labelledby="honesty">
+      <h2 id="honesty">why it doesn't flatter you</h2>
+      <p>One design rule serves the goal of actually getting hired: every model call runs under a methodology prompt that forbids invented facts and requires fit analyses to surface real gaps and disqualifiers, not just strengths. Resumes built on flattery fail in the first interview. An honest read of your fit means you spend effort on jobs you can win and walk in with answers that hold up.</p>
     </section>
 
     <section aria-labelledby="screens">
