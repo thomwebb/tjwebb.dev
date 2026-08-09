@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>jobhunt.coach — TJ Webb</title>
+<meta name="description" content="How I built jobhunt.coach: a live, multi-user AI career coach with an honesty methodology baked into every model call. Writeup by TJ Webb.">
+<link rel="canonical" href="https://tjwebb.dev/projects/jobhunt">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://tjwebb.dev/projects/jobhunt">
+<meta property="og:title" content="jobhunt.coach — project writeup">
+<meta property="og:description" content="A live AI career coach that is forbidden from flattering you. Architecture, agentic loop, and the honesty methodology behind it.">
+<meta property="og:site_name" content="TJ Webb">
+<meta name="theme-color" id="meta-theme-color" content="#0d1117">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230d1117'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='14' fill='%233fb950' text-anchor='middle'%3E%3E_%3C/text%3E%3C/svg%3E">
+<script>
+(function () {
+  var themes = ['github-dark', 'gruvbox', 'dracula', 'solarized-dark', 'monokai', 'phosphor'];
+  var colors = {
+    'github-dark': '#0d1117',
+    'gruvbox': '#282828',
+    'dracula': '#282a36',
+    'solarized-dark': '#002b36',
+    'monokai': '#272822',
+    'phosphor': '#050805'
+  };
+  var theme = 'github-dark';
+  try {
+    var saved = localStorage.getItem('tw-theme');
+    if (saved && themes.indexOf(saved) !== -1) theme = saved;
+  } catch (e) {}
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('meta-theme-color').content = colors[theme];
+})();
+</script>
+<style>
+  :root {
+    /* github-dark (default) */
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --border: #30363d;
+    --fg: #c9d1d9;
+    --fg-dim: #8b949e;
+    --green: #3fb950;
+    --green-bright: #56d364;
+    --cyan: #39c5cf;
+    --yellow: #d29922;
+    --heading: #e6edf3;
+  }
+  [data-theme="gruvbox"] {
+    --bg: #282828;
+    --bg-soft: #32302f;
+    --border: #504945;
+    --fg: #ebdbb2;
+    --fg-dim: #a89984;
+    --green: #b8bb26;
+    --green-bright: #b8bb26;
+    --cyan: #83a598;
+    --yellow: #d79921;
+    --heading: #fbf1c7;
+  }
+  [data-theme="dracula"] {
+    --bg: #282a36;
+    --bg-soft: #343746;
+    --border: #44475a;
+    --fg: #f8f8f2;
+    --fg-dim: #6f7fbb;
+    --green: #50fa7b;
+    --green-bright: #50fa7b;
+    --cyan: #8be9fd;
+    --yellow: #f1fa8c;
+    --heading: #bd93f9;
+  }
+  [data-theme="solarized-dark"] {
+    --bg: #002b36;
+    --bg-soft: #073642;
+    --border: #11424f;
+    --fg: #839496;
+    --fg-dim: #657b83;
+    --green: #859900;
+    --green-bright: #859900;
+    --cyan: #2aa198;
+    --yellow: #b58900;
+    --heading: #93a1a1;
+  }
+  [data-theme="monokai"] {
+    --bg: #272822;
+    --bg-soft: #3e3d32;
+    --border: #49483e;
+    --fg: #f8f8f2;
+    --fg-dim: #a6a28e;
+    --green: #a6e22e;
+    --green-bright: #a6e22e;
+    --cyan: #66d9ef;
+    --yellow: #e6db74;
+    --heading: #ffffff;
+  }
+  [data-theme="phosphor"] {
+    --bg: #050805;
+    --bg-soft: #0c140c;
+    --border: #1c331c;
+    --fg: #33cc33;
+    --fg-dim: #2a8a2a;
+    --green: #33ff33;
+    --green-bright: #66ff66;
+    --cyan: #33ff99;
+    --yellow: #ccff33;
+    --heading: #66ff66;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 50;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--fg-dim);
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.35rem 0.7rem;
+  }
+  .theme-toggle:hover { color: var(--green-bright); border-color: var(--green); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  header.hero { padding: 5rem 0 2.5rem; }
+  .prompt { color: var(--fg-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .prompt .dollar { color: var(--green); }
+  .crumb {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+  }
+  .crumb a { color: var(--fg-dim); text-decoration: none; }
+  .crumb a::before { content: "cd "; color: var(--green); }
+  .crumb a:hover, .crumb a:focus-visible { color: var(--green-bright); outline: none; }
+  h1 {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 700;
+    color: var(--green-bright);
+    letter-spacing: -0.02em;
+  }
+  .subtitle { color: var(--cyan); margin-top: 0.5rem; }
+  .meta-line {
+    margin-top: 1.25rem;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    color: var(--fg-dim);
+  }
+  .meta-line a { color: var(--green); text-decoration: none; }
+  .meta-line a:hover, .meta-line a:focus-visible { text-decoration: underline; outline: none; }
+
+  section { padding: 2.25rem 0; border-top: 1px solid var(--border); }
+  h2 {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9rem;
+    color: var(--green);
+    margin-bottom: 1.25rem;
+  }
+  h2::before { content: "## "; color: var(--fg-dim); }
+  section p { margin-bottom: 1rem; }
+  section p:last-child { margin-bottom: 0; }
+  section a { color: var(--green-bright); }
+  strong { color: var(--heading); font-weight: 600; }
+
+  ol.flows { margin: 0 0 1rem 1.25rem; }
+  ol.flows li { margin-bottom: 0.75rem; }
+  ol.flows li::marker {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--yellow);
+  }
+
+  ul.stack { list-style: none; margin-bottom: 1rem; }
+  ul.stack li { padding-left: 1.4rem; position: relative; margin-bottom: 0.5rem; }
+  ul.stack li::before {
+    content: ">";
+    position: absolute;
+    left: 0;
+    color: var(--green);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  figure { margin: 1.5rem 0; }
+  figure img {
+    max-width: 100%;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--fg-dim);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .shot-placeholder {
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: var(--fg-dim);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+  }
+
+  footer {
+    padding: 2.5rem 0 3.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--fg-dim);
+    font-size: 0.85rem;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  footer a { color: var(--green); text-decoration: none; }
+  footer a:hover, footer a:focus-visible { text-decoration: underline; outline: none; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    body, .theme-toggle { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease; }
+  }
+</style>
+</head>
+<body>
+<button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
+  <span id="theme-label">[theme: github-dark]</span>
+</button>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="crumb mono"><a href="/">..</a></p>
+    <p class="prompt mono" style="margin-top:1.5rem;"><span class="dollar">$</span> cat ~/projects/jobhunt.md</p>
+    <h1>jobhunt.coach</h1>
+    <p class="subtitle">An AI career coach that is forbidden from flattering you.</p>
+    <p class="meta-line">live · invite-gated · multi-user · sole engineer · <a href="https://jobhunt.coach">jobhunt.coach ↗</a></p>
+  </header>
+
+  <main>
+    <section aria-labelledby="what">
+      <h2 id="what">what it is</h2>
+      <p>jobhunt.coach runs a job search end to end from a single chat-driven dashboard. It interviews you about your career the way an oral historian would, one question at a time, and builds a structured career narrative from your answers. Paste a job description and it analyzes your fit, then writes a tailored resume and cover letter, compiled from LaTeX to a real PDF. Before an interview, it produces per-interviewer prep: likely questions, answers in your own voice, grounded in your actual history.</p>
+      <p>It's the productized version of a methodology I first ran manually on my own job search — the same process that landed my current role. I built it alone: 1,200+ of the repo's ~1,250 commits are mine (the rest are Dependabot), through a PR-based workflow with CI enforcement.</p>
+    </section>
+
+    <section aria-labelledby="honesty">
+      <h2 id="honesty">the honest part</h2>
+      <p>The distinguishing idea isn't a feature, it's a constraint. Every LLM call is wrapped in a methodology prompt that <strong>forbids inventing facts</strong>, forbids claiming anything "shipped" or "deployed" without evidence from your history, and <strong>forces the model to surface gaps and outright disqualifiers</strong> in a fit analysis instead of cheerleading.</p>
+      <p>A career tool that flatters you produces resumes that collapse in the first interview. The uncomfortable version — "you don't meet this requirement, here's what you can honestly say instead" — is the one that's actually useful. Making a model reliably honest about its user turned out to be a harder and more interesting problem than making it eloquent.</p>
+    </section>
+
+    <section aria-labelledby="how">
+      <h2 id="how">how it works</h2>
+      <ol class="flows">
+        <li><strong>Oral history.</strong> Upload a resume and the assistant interviews you in chat, maintaining a live profile preview as you answer. The result is a career narrative in two forms: markdown for tailoring, structured JSON for LaTeX token substitution.</li>
+        <li><strong>Fit + tailored PDF.</strong> Paste a JD or a URL. The assistant runs an honest fit analysis (strengths, real gaps, disqualifiers), then generates a tailored LaTeX resume and cover letter compiled by Tectonic. If compilation fails, the model repairs the .tex from the compile log, up to four attempts.</li>
+        <li><strong>Interview prep.</strong> Per-interviewer dossiers with likely questions and answers in your voice, grounded in the profile rather than invented.</li>
+      </ol>
+      <p>Turns are durable: a long agentic run survives a page reload, because the client polls a turn ID instead of holding a connection open. One turn can chain up to 20 tool actions, so a compound request like "find jobs, analyze the top three, draft resumes for the best two" completes without babysitting.</p>
+    </section>
+
+    <section aria-labelledby="screens">
+      <h2 id="screens">screenshots</h2>
+      <figure>
+        <div class="shot-placeholder">[ screenshot: oral-history interview with live profile preview ]</div>
+        <figcaption>fig 1 — the oral-history interview building a profile in real time</figcaption>
+      </figure>
+      <figure>
+        <div class="shot-placeholder">[ screenshot: fit analysis with gaps and disqualifiers surfaced ]</div>
+        <figcaption>fig 2 — an honest fit analysis: strengths, gaps, disqualifiers</figcaption>
+      </figure>
+      <figure>
+        <div class="shot-placeholder">[ screenshot: generated LaTeX resume rendered as PDF ]</div>
+        <figcaption>fig 3 — a tailored resume, LaTeX-compiled to PDF with self-repair on errors</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="stack">
+      <h2 id="stack">under the hood</h2>
+      <ul class="stack">
+        <li><strong>Backend:</strong> Python 3.13 + FastAPI as a pure JSON API; agentic loop with auto tool-choice, batched execution, observe, repeat.</li>
+        <li><strong>LLM layer:</strong> provider-agnostic over raw httpx, no vendor SDKs — Anthropic, OpenAI, Cerebras, Gemini, OpenRouter and more behind one <span class="mono">complete()</span> interface.</li>
+        <li><strong>Frontend:</strong> React SPA (TypeScript + Vite), a single chat shell with a results panel — built with heavy AI-coding-agent assistance, which felt like the appropriate way to build it.</li>
+        <li><strong>Persistence:</strong> stdlib sqlite3, no ORM; database and generated PDFs live on a Fly.io volume.</li>
+        <li><strong>Edge:</strong> Cloudflare Worker fronting the Fly.io app; invite-gated multi-user auth with CSRF protection; Sentry, e2e tests, ruff and mypy in CI.</li>
+        <li><strong>Billing:</strong> Stripe subscriptions built with signed-webhook verification, currently shipped dark behind a rollout flag.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p><a href="/">← tjwebb.dev</a> · <a href="https://jobhunt.coach">jobhunt.coach ↗</a></p>
+  </footer>
+
+</div>
+<script>
+(function () {
+  var themes = ['github-dark', 'gruvbox', 'dracula', 'solarized-dark', 'monokai', 'phosphor'];
+  var colors = {
+    'github-dark': '#0d1117',
+    'gruvbox': '#282828',
+    'dracula': '#282a36',
+    'solarized-dark': '#002b36',
+    'monokai': '#272822',
+    'phosphor': '#050805'
+  };
+  var btn = document.getElementById('theme-toggle');
+  var meta = document.getElementById('meta-theme-color');
+  var label = document.getElementById('theme-label');
+  function current() {
+    return document.documentElement.getAttribute('data-theme') || 'github-dark';
+  }
+  function sync() {
+    var t = current();
+    label.textContent = '[theme: ' + t + ']';
+    btn.setAttribute('aria-label', 'Switch terminal theme (current: ' + t + ')');
+    meta.content = colors[t];
+  }
+  btn.addEventListener('click', function () {
+    var next = themes[(themes.indexOf(current()) + 1) % themes.length];
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('tw-theme', next); } catch (e) {}
+    sync();
+  });
+  sync();
+})();
+</script>
+</body>
+</html>
