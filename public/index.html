@@ -18,6 +18,26 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://tjwebb.dev/og-card-v2.png">
 <meta name="theme-color" id="meta-theme-color" content="#0d1117">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "TJ Webb",
+  "url": "https://tjwebb.dev",
+  "email": "mailto:thomasjwebb@proton.me",
+  "jobTitle": "Principal Software Engineer",
+  "worksFor": { "@type": "Organization", "name": "Walmart Global Tech" },
+  "sameAs": [
+    "https://github.com/thomwebb",
+    "https://www.linkedin.com/in/thomwebb"
+  ],
+  "knowsAbout": ["AI coding agents", "developer tools", "Python", "machine learning"],
+  "alumniOf": [
+    { "@type": "CollegeOrUniversity", "name": "DePaul University" },
+    { "@type": "CollegeOrUniversity", "name": "Rochester College" }
+  ]
+}
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230d1117'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='14' fill='%233fb950' text-anchor='middle'%3E%3E_%3C/text%3E%3C/svg%3E">
 <script>
 (function () {
@@ -39,7 +59,22 @@
   document.getElementById('meta-theme-color').content = colors[theme];
 })();
 </script>
+<link rel="preload" href="/fonts/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  @font-face {
+    font-family: "JetBrains Mono";
+    src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "JetBrains Mono";
+    src: url("/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
   :root {
     /* github-dark (default) */
     --bg: #0d1117;
@@ -70,7 +105,7 @@
     --bg-soft: #343746;
     --border: #44475a;
     --fg: #f8f8f2;
-    --fg-dim: #6f7fbb;
+    --fg-dim: #98a5da;
     --green: #50fa7b;
     --green-bright: #50fa7b;
     --cyan: #8be9fd;
@@ -82,7 +117,7 @@
     --bg-soft: #073642;
     --border: #11424f;
     --fg: #839496;
-    --fg-dim: #657b83;
+    --fg-dim: #8ba0a6;
     --green: #859900;
     --green-bright: #859900;
     --cyan: #2aa198;
@@ -210,11 +245,11 @@
   .fineprint + .fineprint { margin-top: 0.2rem; }
 
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  @media (max-width: 1099px) {
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
     .job-head { display: block; }
     .job time { display: block; margin-top: 0.2rem; }
   }
-  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
   .project {
     background: var(--bg-soft);
     border: 1px solid var(--border);
@@ -232,14 +267,6 @@
   .project h3 a::after { content: " ↗"; color: var(--fg-dim); }
   .project h3 a:hover, .project h3 a:focus-visible { text-decoration: underline; outline: none; }
   .project p { margin-top: 0.4rem; color: var(--fg); font-size: 0.92rem; }
-  .writeup { margin-top: 0.5rem; font-size: 0.82rem; }
-  .writeup a {
-    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    color: var(--fg-dim);
-    text-decoration: none;
-  }
-  .writeup a::before { content: "$ "; color: var(--green); }
-  .writeup a:hover, .writeup a:focus-visible { color: var(--green-bright); outline: none; }
   .tags { margin-top: 0.65rem; display: flex; gap: 0.45rem; flex-wrap: wrap; }
   .tags span {
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -381,7 +408,7 @@
 
         <article class="project">
           <h3><a href="https://github.com/thomwebb/gac">gac</a></h3>
-          <p>Writes your git commit messages using any of 35+ LLM providers. 300+ stars, 125k+ downloads, community-translated docs in 16 languages.</p>
+          <p>Writes your git commit messages in any language, using any of 35+ LLM providers. 300+ stars, 125k+ downloads.</p>
           <div class="tags"><span>python</span><span>cli</span><span>llm</span></div>
         </article>
 
