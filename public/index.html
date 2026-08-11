@@ -300,8 +300,8 @@
   a { color: var(--green); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; outline: none; }
 
-  /* === ascii-cat: wandering terminal cat — roams the whole viewport at any width
-     (walks over text OK, but never SITS on it).
+  /* === ascii-cat: wandering terminal cat — roams the page at any width, staying near
+     the content column (walks over text OK, but never SITS on it).
      See matching <pre id="ascii-cat"> and script block. === */
   #ascii-cat {
     position: fixed;
@@ -349,7 +349,7 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
-<!-- === ascii-cat: wandering terminal cat — roams the whole screen at any width (never sits on text). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<!-- === ascii-cat: wandering terminal cat — roams the page at any width, staying near the content column (never sits on text). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
 <pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
@@ -513,8 +513,9 @@
 </script>
 <script>
 /* === ascii-cat: wandering terminal cat — single 'roam' mode at every viewport width:
-     random-walks across the whole viewport — walks over text but never STOPS/sits on it
-     (collision check on endpoints only, no x-confinement).
+     random-walks across the page, staying within the content column plus a small gutter
+     allowance horizontally (xRange) — walks over text but never STOPS/sits on it
+     (collision check on endpoints only).
    Remove together with the <pre id="ascii-cat"> and the "#ascii-cat" CSS block above. === */
 (function () {
   var cat = document.getElementById('ascii-cat');
@@ -543,8 +544,23 @@
   function place() {
     cat.style.transform = 'translate(' + x + 'px, ' + y + 'px) scaleX(' + dir + ')';
   }
-  function randomX() { return rand(8, Math.max(9, window.innerWidth - catW() - 8)); }
   function randomY() { return rand(8, Math.max(9, window.innerHeight - catH() - 8)); }
+
+  /* horizontal range: the content column plus a small allowance into each gutter,
+     so on wide monitors the cat roams across the page without hugging the far
+     left/right screen edges. Measured live from the DOM so it tracks resize. */
+  var EDGE_ALLOW = 64;
+  function xRange() {
+    var min = 8, max = window.innerWidth - catW() - 8;
+    var wrap = document.querySelector('.wrap');
+    if (wrap) {
+      var r = wrap.getBoundingClientRect();
+      min = Math.max(min, r.left - EDGE_ALLOW);
+      max = Math.min(max, r.right + EDGE_ALLOW - catW());
+    }
+    if (max < min) { min = 8; max = Math.max(9, window.innerWidth - catW() - 8); } /* narrow viewport: full width */
+    return { min: min, max: max };
+  }
 
   /* padded bounding rects of visible text, plus the fixed theme-toggle button */
   function collectTextRects() {
@@ -578,10 +594,12 @@
 
   function pickTarget() {
     if (rectsDirty) collectTextRects();
-    /* candidates span the whole viewport at any width, but the cat must not STOP on
-       text (strolling across text on the way is fine — only endpoints are checked) */
+    /* candidates span the viewport vertically but stay within the content column
+       horizontally (xRange), and the cat must not STOP on text
+       (strolling across text on the way is fine — only endpoints are checked) */
+    var xr = xRange();
     for (var i = 0; i < 30; i++) {
-      var cx = randomX(), cy = randomY();
+      var cx = rand(xr.min, xr.max), cy = randomY();
       if (isValidSpot(cx, cy)) return { x: cx, y: cy };
     }
     return null; /* sit where it is */
@@ -658,8 +676,9 @@
     enable();
   }
 
-  /* after scroll/resize settles: re-gate, then — if text slid under the SITTING cat —
-     WALK it out of the way with the normal stroll machinery (never teleport) */
+  /* after scroll/resize settles: re-gate, then — if text slid under the SITTING cat
+     or a resize left it outside the horizontal range — WALK it out of the way
+     with the normal stroll machinery (never teleport) */
   function onLayoutShift() {
     syncGate();
     rectsDirty = true;
@@ -668,7 +687,8 @@
       /* only relocate while SITTING: no mid-stroll jitter, no retrigger while walking to safety */
       if (!active || state === 'walk') return;
       collectTextRects();
-      if (!isValidSpot(x, y)) {
+      var xr = xRange();
+      if (!isValidSpot(x, y) || x < xr.min || x > xr.max) {
         /* resize pushed the cat (partly) off-viewport: clamp back on-screen first,
            then stroll the rest of the way */
         if (x < 0 || y < 0 || x + catW() > window.innerWidth || y + catH() > window.innerHeight) {
