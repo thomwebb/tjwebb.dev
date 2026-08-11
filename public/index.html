@@ -300,8 +300,8 @@
   a { color: var(--green); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; outline: none; }
 
-  /* === ascii-cat: wandering terminal cat — two modes: LEFT-gutter on desktop (avoids text),
-     whole-screen roam on mobile (walks over text OK, but never SITS on it).
+  /* === ascii-cat: wandering terminal cat — roams the whole viewport at any width
+     (walks over text OK, but never SITS on it).
      See matching <pre id="ascii-cat"> and script block. === */
   #ascii-cat {
     position: fixed;
@@ -318,7 +318,7 @@
     opacity: 0.9;
     will-change: transform;
   }
-  /* mobile roam mode: slightly smaller cat so it covers less content */
+  /* smaller cat on narrow screens so it covers less content */
   @media (max-width: 1099px) {
     #ascii-cat { font-size: 9px; }
   }
@@ -349,7 +349,7 @@
 <button id="theme-toggle" class="theme-toggle mono" type="button" aria-label="Switch terminal theme">
   <span id="theme-label">[theme: github-dark]</span>
 </button>
-<!-- === ascii-cat: wandering terminal cat — left gutter on desktop, roams the whole screen on mobile (never sits on text). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
+<!-- === ascii-cat: wandering terminal cat — roams the whole screen at any width (never sits on text). To remove, delete this <pre>, the "#ascii-cat" CSS block, and the "ascii-cat" <script> before </body>. === -->
 <pre id="ascii-cat" class="mono" aria-hidden="true"></pre>
 <div class="wrap">
 
@@ -504,10 +504,9 @@
 })();
 </script>
 <script>
-/* === ascii-cat: wandering terminal cat — two modes:
-     'gutter' (desktop >=1100px): roams the LEFT gutter, avoids text collisions.
-     'roam'   (mobile  <1100px): random-walk across the whole viewport — walks over text
-     but never STOPS/sits on it (same collision check, no gutter x-confinement).
+/* === ascii-cat: wandering terminal cat — single 'roam' mode at every viewport width:
+     random-walks across the whole viewport — walks over text but never STOPS/sits on it
+     (collision check on endpoints only, no x-confinement).
    Remove together with the <pre id="ascii-cat"> and the "#ascii-cat" CSS block above. === */
 (function () {
   var cat = document.getElementById('ascii-cat');
@@ -525,21 +524,6 @@
   function catW() { return cat.offsetWidth || 90; }
   function catH() { return cat.offsetHeight || 40; }
 
-  /* the left gutter: viewport left edge .. content column's left edge, minus margins.
-     Measured live from the DOM so it tracks resize/scroll like the rect cache. */
-  var GUTTER_MIN = 12, GUTTER_PAD = 16;
-  function gutter() {
-    var wrap = document.querySelector('.wrap');
-    if (!wrap) return null;
-    return { min: GUTTER_MIN, max: wrap.getBoundingClientRect().left - catW() - GUTTER_PAD };
-  }
-  function gutterOk() {
-    var g = gutter();
-    return g !== null && g.max >= g.min;
-  }
-
-  var desktop = window.matchMedia('(min-width: 1100px)');
-  var mode = null;            /* 'gutter' | 'roam' */
   var x = 48, y = 48, dir = 1;  /* dir: 1 = facing left (tail right), -1 = flipped right */
   var state = 'sit';
   var active = false;
@@ -554,7 +538,7 @@
   function randomX() { return rand(8, Math.max(9, window.innerWidth - catW() - 8)); }
   function randomY() { return rand(8, Math.max(9, window.innerHeight - catH() - 8)); }
 
-  /* padded bounding rects of visible text, plus the fixed theme-toggle button (gutter mode only) */
+  /* padded bounding rects of visible text, plus the fixed theme-toggle button */
   function collectTextRects() {
     var pad = 12, rects = [];
     var els = document.querySelectorAll(
@@ -586,21 +570,10 @@
 
   function pickTarget() {
     if (rectsDirty) collectTextRects();
-    /* roam mode: candidates span the whole viewport, but the cat must not STOP on
+    /* candidates span the whole viewport at any width, but the cat must not STOP on
        text (strolling across text on the way is fine — only endpoints are checked) */
-    if (mode === 'roam') {
-      for (var i = 0; i < 30; i++) {
-        var cx = randomX(), cy = randomY();
-        if (isValidSpot(cx, cy)) return { x: cx, y: cy };
-      }
-      return null; /* sit where it is */
-    }
-    /* gutter mode: left gutter only, same text-rect check as safety net for full-width elements */
-    var g = gutter();
-    if (!g || g.max < g.min) return null;
     for (var i = 0; i < 30; i++) {
-      var cx = rand(g.min, g.max);
-      var cy = randomY();
+      var cx = randomX(), cy = randomY();
       if (isValidSpot(cx, cy)) return { x: cx, y: cy };
     }
     return null; /* sit where it is */
@@ -654,12 +627,11 @@
     walkTo(t, 40);
   }
 
-  function enable(newMode) {
-    mode = newMode;
+  function enable() {
     active = true;
     cat.style.display = '';
     rectsDirty = true;
-    var t = pickTarget(); /* start from a valid spot for the mode */
+    var t = pickTarget(); /* start from a valid spot */
     if (t) { x = t.x; y = t.y; }
     place();
     blinkLoop();
@@ -672,21 +644,11 @@
     clearTimeout(stateTimer);
     clearTimeout(blinkTimer);
   }
-  /* switch modes on viewport changes; desktop gutter mode still hides if the gutter is too narrow */
+  /* one mode at every viewport width: enable once, and again when the tab returns */
   function syncGate() {
-    var m = desktop.matches ? 'gutter' : 'roam';
-    if (m === 'gutter' && !gutterOk()) {
-      disable();
-      mode = m;
-      cat.style.display = 'none';
-      return;
-    }
-    if (active && m === mode) return;
-    disable();
-    enable(m);
+    if (active) return;
+    enable();
   }
-  if (desktop.addEventListener) desktop.addEventListener('change', syncGate);
-  else desktop.addListener(syncGate);
 
   /* after scroll/resize settles: re-gate, then — if text slid under the SITTING cat —
      WALK it out of the way with the normal stroll machinery (never teleport) */
