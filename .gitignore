@@ -2,3 +2,7 @@
 node_modules/
 .DS_Store
 preview/
+
+# Unpublished writing stays local, outside deployed assets.
+drafts/
+__pycache__/
