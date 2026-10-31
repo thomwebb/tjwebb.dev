@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Project overview
 
-Source for [tjwebb.dev](https://tjwebb.dev) — TJ Webb's personal portfolio site. It is a **single self-contained `index.html`** with inline CSS and JS, no build step, no dependencies, and no package manifest (`package.json`, `pyproject.toml`, etc. do not exist).
+Source for [tjwebb.dev](https://tjwebb.dev) — TJ Webb's personal portfolio site. It is **self-contained static HTML pages** with inline CSS and JS, no build step, no dependencies, and no package manifest (`package.json`, `pyproject.toml`, etc. do not exist).
 
 The site has a terminal aesthetic and includes:
 
@@ -14,7 +14,9 @@ The site has a terminal aesthetic and includes:
 
 ## Repository layout
 
-- `public/index.html` — the entire site (markup, styles, scripts all inline).
+- `public/index.html` — the portfolio (markup, styles, scripts all inline).
+- `public/blog/index.html` and `public/blog/feed.xml` — blog index and RSS feed.
+- `tools/blog-post-template.html` and `tools/BLOG.md` — unpublished placeholder template and authoring guide. Never commit unapproved writing to this public repo; keep it in gitignored `drafts/`.
 - `public/fonts/` — JetBrains Mono Regular/Bold `.woff2`, self-hosted.
 - `public/og-card-v2.png` — social share card (1200x630). **Version the filename when it changes** (e.g. `og-card-v3.png`) and update the `og:image` / `twitter:image` meta tags to match, so cached cards are invalidated.
 - `public/projects/` — currently empty.
@@ -25,19 +27,19 @@ The site has a terminal aesthetic and includes:
 
 ## Tech stack and runtime architecture
 
-- Plain HTML/CSS/vanilla JS (ES5-style `var`, no modules, no frameworks). Everything is inlined in `public/index.html`; the only external requests are the two font files.
+- Plain HTML/CSS/vanilla JS (ES5-style `var`, no modules, no frameworks). CSS and JS are inlined in each HTML page; the only external requests are the two font files.
 - Runtime: Cloudflare Workers **static assets** — there is no Worker script (`wrangler.jsonc` has no `main` entry), so requests are served directly from the asset store.
 
 ## Build, test, and deploy
 
-- **No build step and no test suite.** Verification is manual: open `public/index.html` in a browser (or serve `public/` with any static server) and check the themes, the theme toggle, and the cat's behavior — including `prefers-reduced-motion` emulation and narrow viewports.
+- **No build step.** Run `python3 -m unittest discover -s tests -v` for static checks (also run in PR CI). Browser verification remains manual: open `public/index.html` in a browser (or serve `public/` with any static server) and check the themes, the theme toggle, and the cat's behavior — including `prefers-reduced-motion` emulation and narrow viewports.
 - Local preview with Wrangler: `npx wrangler dev` (serves `public/` per `wrangler.jsonc`).
 - Deploy happens by pushing to `main`: GitHub Actions runs `cloudflare/wrangler-action@v3` with `command: deploy`. Manual deploy: `npx wrangler deploy`.
 - Wrangler is **pinned to 4.120.1** in the workflow — do not bump blindly; the pin comment notes 4.121.0 depends on an unpublished `miniflare@5.20260804.1-alpha`. Check that this is resolved before upgrading.
 
 ## Code style guidelines
 
-- Keep the single-file architecture: new styles go in the existing `<style>` block, new behavior in an existing or clearly-delimited `<script>` block. Do not introduce a bundler, framework, or external CSS/JS files.
+- Keep each page self-contained (including article pages): new styles go in the existing `<style>` block, new behavior in an existing or clearly-delimited `<script>` block. Do not introduce a bundler, framework, or external CSS/JS files.
 - Match the surrounding idioms: 2-space indent, `var`-based vanilla JS wrapped in IIFEs, CSS custom properties for all theme colors.
 - All colors must come from the theme variables (`--bg`, `--fg`, `--green`, etc.) so every palette stays coherent — never hardcode a color in component CSS. When adding a theme, update all three places: the `[data-theme]` CSS block, and the `themes`/`colors` tables in **both** inline scripts (head theme-restoration script and body toggle script).
 - Respect accessibility conventions already in place: `aria-hidden` on decorative elements, `aria-label` on the theme toggle, focus-visible styles, and `prefers-reduced-motion` handling for all animation.
