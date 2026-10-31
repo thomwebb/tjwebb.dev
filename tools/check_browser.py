@@ -25,7 +25,7 @@ try:
    page=browser.new_page(viewport={'width':width,'height':900},reduced_motion='reduce')
    errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
    page.goto(base + '/')
-   page.get_by_role('link',name='blog',exact=True).click()
+   page.locator('nav a[href="/blog/"]').click()
    assert page.url.endswith('/blog/')
    assert page.get_by_role('heading',name='Blog',exact=True).count()==1
    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
@@ -34,7 +34,7 @@ try:
     assert page.locator('html').get_attribute('data-theme')==expected
     page.reload()
     assert page.locator('html').get_attribute('data-theme')==expected
-   page.get_by_role('navigation').get_by_role('link',name='home',exact=True).click()
+   page.locator('nav a[href="/"]').click()
    assert page.url.endswith('/')
    page.go_back();assert page.url.endswith('/blog/')
    page.go_forward();assert page.url==base + '/'
